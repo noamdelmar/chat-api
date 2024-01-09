@@ -1,8 +1,14 @@
-#chat_server.py
 import socket
 import threading
-from websocket import WebSocket
 import logging
+from websocket import WebSocket
+
+# Constants for WebSocket
+OPCODE_TEXT_FRAME = 0x81
+PAYLOAD_LEN_7_BITS = 0x7D
+PAYLOAD_LEN_16_BITS = 0x7E
+PAYLOAD_LEN_64_BITS = 0x7F
+
 HOST = '0.0.0.0'
 
 logging.basicConfig(filename='chat_server.log', level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
@@ -98,7 +104,6 @@ class ChatServer:
         self.clients.remove((username, client_socket))
 
     def receive_message(self, client_socket):
-
         try:
             opcode = client_socket.recv(1)
             if not opcode:
@@ -122,12 +127,13 @@ class ChatServer:
 
         except (ConnectionResetError, ValueError):
             return None
-    
     def broadcast(self, message, sender_socket):
-        print(message)
         for _, client_socket in self.clients:
             if client_socket != sender_socket:
                 try:
-                    client_socket.send(message.encode('utf-8'))
+                    WebSocket.send_message(client_socket, message)
                 except:
                     self.remove_client(_, client_socket)
+    
+    def get_usernames(self):
+        return [username for username, _ in self.clients]
