@@ -2,12 +2,7 @@ import socket
 import threading
 import logging
 from websocket import WebSocket
-
-# Constants for WebSocket
-OPCODE_TEXT_FRAME = 0x81
-PAYLOAD_LEN_7_BITS = 0x7D
-PAYLOAD_LEN_16_BITS = 0x7E
-PAYLOAD_LEN_64_BITS = 0x7F
+import json
 
 HOST = '0.0.0.0'
 
@@ -68,8 +63,8 @@ class ChatServer:
             client_socket.send(response.encode('utf-8'))
 
             # Receive the username from the client
-            username = self.receive_username(client_socket)
-            username = 'Oliver'
+            # username = 'Oliver'
+            username = self.get_username(client_socket)
 
             # Continue with the rest of your chat application logic
             self.broadcast(f"{username} has joined the chat.", client_socket)
@@ -88,15 +83,46 @@ class ChatServer:
             pass
 
         finally:
+            connected_usernames = self.get_usernames()
+            print(f"Connected users: {', '.join(connected_usernames)}")
             self.remove_client(username, client_socket)
             self.broadcast(f"{username} has left the chat.", client_socket)
 
-    def receive_username(self, client_socket):
-        try:
-            # Assuming the client sends the username followed by a newline character
-            username = client_socket.recv(1024).decode('utf-8').strip()
-            return username
-        except (ConnectionResetError, ValueError):
+    def get_username(self, client_socket):
+        try:            
+            # Receive the WebSocket message frame
+            frame = client_socket.recv(2048)
+            
+            # Extract the payload from the frame
+            payload_length = frame[1] & 127
+            mask_start = 2
+            if payload_length == 126:
+                payload_length = int.from_bytes(frame[2:4], byteorder='big')
+                mask_start = 4
+            elif payload_length == 127:
+                payload_length = int.from_bytes(frame[2:10], byteorder='big')
+                mask_start = 10
+            
+            mask = frame[mask_start:mask_start + 4]
+            data_start = mask_start + 4
+            
+            # Unmask the payload
+            payload = bytearray()
+            for i in range(payload_length):
+                payload.append(frame[data_start + i] ^ mask[i % 4])
+            
+            decoded_payload = payload.decode('utf-8')
+            
+            data = json.loads(decoded_payload)
+
+            # Check if the received message has the expected 'type' field
+            if 'type' in data and data['type'] == 'username':
+                return data['username']
+            else:
+                # Handle unexpected message format
+                return None
+        except (ConnectionResetError, ValueError, json.JSONDecodeError):
+            # Handle errors when receiving or decoding the message
             return None
 
     def remove_client(self, username, client_socket):
@@ -122,11 +148,11 @@ class ChatServer:
             for i in range(payload_length):
                 payload.append(client_socket.recv(1)[0] ^ mask[i % 4])
 
-            print(payload.decode('utf-8'))
             return payload.decode('utf-8')
 
         except (ConnectionResetError, ValueError):
             return None
+    
     def broadcast(self, message, sender_socket):
         for _, client_socket in self.clients:
             if client_socket != sender_socket:

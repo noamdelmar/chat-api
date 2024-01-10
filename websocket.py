@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 # Constants for WebSocket
 OPCODE_TEXT_FRAME = 0x81
 PAYLOAD_LEN_7_BITS = 0x7D
@@ -37,3 +38,4 @@ class WebSocket:
         except Exception as e:
             print(f"Error sending message: {e}")
 
+    
