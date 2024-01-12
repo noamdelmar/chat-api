@@ -94,10 +94,12 @@ class ChatServer:
 
     def get_user_data(self, client_socket):
         try:
+            # Adjust payload size according to your needs
             frame = client_socket.recv(2048)
 
             payload_length = frame[1] & 127
             mask_start = 2
+
             if payload_length == 126:
                 payload_length = int.from_bytes(frame[2:4], byteorder='big')
                 mask_start = 4
@@ -120,7 +122,9 @@ class ChatServer:
             else:
                 return None
 
-        except (ConnectionResetError, ValueError, json.JSONDecodeError):
+        except (ConnectionResetError, ValueError, json.JSONDecodeError) as e:
+            # Log the specific exception for debugging
+            logging.error(f"Error in get_user_data: {e}")
             return None
 
     def remove_client(self, username, room, client_socket):
@@ -151,9 +155,9 @@ class ChatServer:
 
             return payload.decode('utf-8')
 
-        except (ConnectionResetError, ValueError):
+        except (ConnectionResetError, ValueError) as e:
+            logging.error(f"Error in receive_message: {e}")
             return None
-
    
     def broadcast(self, message, sender_socket, room):
         if room in self.rooms:
