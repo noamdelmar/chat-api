@@ -12,7 +12,7 @@ class ChatServer:
     def __init__(self, port):
         self.host = HOST
         self.port = port
-        self.rooms = {}  # Dictionary to store room information
+        self.rooms = {}  
         self.shutdown_flag = threading.Event()
 
     def start(self):
@@ -71,8 +71,9 @@ class ChatServer:
 
             # Add the client to the room
             self.rooms[room].append((username, client_socket))
+            connected_users = self.get_connected_users(room)
 
-            # Continue with the rest of your chat application logic
+            self.send_userlist(client_socket, connected_users)
             self.broadcast(f"{username} has joined the chat. To room {room}", client_socket, room)
 
             logging.info(f"New connection from {client_address} - {username} (Room: {room})")
@@ -81,7 +82,7 @@ class ChatServer:
                 message = self.receive_message(client_socket)
                 if not message:
                     break
-                self.broadcast(f"{username}: {message}", client_socket, room)
+                self.broadcast(f"{message}", client_socket, room)
 
         except ConnectionResetError:
             pass
@@ -90,11 +91,12 @@ class ChatServer:
             self.remove_client(username, room, client_socket)
             # connected_usernames = self.get_usernames(room)
             # print(f"Connected users in Room {room}: {', '.join(connected_usernames)}")
+            connected_users = self.get_connected_users(room)
+            self.send_userlist(client_socket, connected_users)
             self.broadcast(f"{username} has left the chat.", client_socket, room)
 
     def get_user_data(self, client_socket):
         try:
-            # Adjust payload size according to your needs
             frame = client_socket.recv(2048)
 
             payload_length = frame[1] & 127
@@ -123,7 +125,6 @@ class ChatServer:
                 return None
 
         except (ConnectionResetError, ValueError, json.JSONDecodeError) as e:
-            # Log the specific exception for debugging
             logging.error(f"Error in get_user_data: {e}")
             return None
 
@@ -171,3 +172,17 @@ class ChatServer:
 
     def get_usernames(self):
         return [username for username, _ in self.clients]
+
+    def get_connected_users(self, room):
+        if room in self.rooms:
+            return [username for username, _ in self.rooms[room]]
+        else:
+            return []
+        
+    def send_userlist(self, client_socket, users):
+        userlist_message = {
+            'type': 'userlist',
+            'users': users
+        }
+        json_message = json.dumps(userlist_message)
+        WebSocket.send_message(client_socket, json_message)
