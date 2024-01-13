@@ -82,7 +82,20 @@ class ChatServer:
                 message = self.receive_message(client_socket)
                 if not message:
                     break
-                self.broadcast(f"{message}", client_socket, room)
+                
+                try:
+                    data = json.loads(message)
+
+                    # Check the type of message
+                    if 'type' in data:
+                        if data['type'] == 'file':
+                            # Handle file message
+                            self.handle_file(data, room, client_socket)
+                        elif data['type'] == 'message':
+                            self.broadcast(f"{message}", client_socket, room)
+                
+                except json.JSONDecodeError:
+                    logging.error("Error decoding JSON message.")
 
         except ConnectionResetError:
             pass
@@ -186,3 +199,41 @@ class ChatServer:
         }
         json_message = json.dumps(userlist_message)
         WebSocket.send_message(client_socket, json_message)
+    
+    def handle_file(self, data, room, sender_socket):
+        file_info = data.get('file')
+        if file_info:
+            file_name = file_info.get('name')
+            file_content = file_info.get('content')
+            username = file_info.get('username')
+
+            # Broadcast the file to other clients in the room
+            self.broadcast_file(file_name, file_content, username, sender_socket, room)
+
+
+    def broadcast_file(self, file_name, file_content,username, sender_socket, room):
+        try:
+            # Prepare the file message to be broadcasted
+            file_data = {
+                'type': 'file',
+                'file': {
+                    'name': file_name,
+                    'content': file_content,
+                    'username': username
+                }
+            }
+            json_message = json.dumps(file_data)
+
+            # Broadcast the file message to other clients in the room
+            if room in self.rooms:
+                room_clients = self.rooms[room]
+                for _, client_socket in room_clients:
+                    if client_socket != sender_socket:
+                        try:
+                            WebSocket.send_file(client_socket, json_message)
+                        except Exception as e:
+                            print(f"Error broadcasting file: {e}")
+                            self.remove_client(_, room, client_socket)
+
+        except Exception as e:
+            print(f"Error preparing file data: {e}")
