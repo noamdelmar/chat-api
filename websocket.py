@@ -89,3 +89,44 @@ class WebSocket:
 
         except Exception as e:
             print(f"Error sending file: {e}")
+
+
+    @staticmethod
+    def send_audio(client_socket, audio_content):
+        try:
+            # Parse the JSON string to a dictionary
+            audio_data = json.loads(audio_content)
+
+            # Get the raw audio data from the "audio" key
+            raw_audio_data = audio_data.get('audio', {}).get('content')
+
+            if raw_audio_data is not None:
+                # Prepare the audio message to be sent
+                audio_message = {
+                    'type': 'audio',
+                    'audio': {
+                        'content': raw_audio_data,
+                        'username': audio_data.get('audio', {}).get('username', ''),  # Include username if available
+                    }
+                }
+                # Convert the audio message to JSON bytes
+                json_message = json.dumps(audio_message).encode('utf-8')
+
+                message_length = len(json_message)
+                frame = bytearray()
+
+                frame.append(OPCODE_TEXT_FRAME)
+                if message_length <= 125:
+                    frame.append(message_length)
+                elif 126 <= message_length <= 65535:
+                    frame.extend([PAYLOAD_LEN_16_BITS, (message_length >> 8) & 255, message_length & 255])
+                else:
+                    frame.extend([PAYLOAD_LEN_64_BITS, (message_length >> 56) & 255, (message_length >> 48) & 255,
+                                (message_length >> 40) & 255, (message_length >> 32) & 255, (message_length >> 24) & 255,
+                                (message_length >> 16) & 255, (message_length >> 8) & 255, message_length & 255])
+
+                frame.extend(json_message)
+                client_socket.send(frame)
+
+        except Exception as e:
+            print(f"Error sending audio: {e}")
