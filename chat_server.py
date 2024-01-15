@@ -13,6 +13,12 @@ logging.basicConfig(filename='chat_server.log', level=logging.INFO, format='%(as
 
 class ChatServer:
     def __init__(self, port):
+        """
+        Initialize the ChatServer.
+
+        Args:
+            port (int): The port on which the server will listen.
+        """
         self.host = HOST
         self.port = port
         self.rooms = {}  
@@ -22,6 +28,9 @@ class ChatServer:
         self.message_server = MessageServer(self)
 
     def start(self):
+        """
+        Start the server to listen for incoming connections.
+        """
         try:
             server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_socket.bind((self.host, self.port))
@@ -39,11 +48,21 @@ class ChatServer:
             self.shutdown()
 
     def shutdown(self):
+        """
+        Shutdown the server.
+        """
         self.shutdown_flag.set()
         print("Server closed.")
         logging.info("Server closed.")
 
     def handle_client(self, client_socket, client_address):
+        """
+        Handle a new client connection.
+
+        Args:
+            client_socket (socket.socket): The client socket.
+            client_address (tuple): The client address.
+        """
         try:
             # Receive and decode the data from the client
             data = client_socket.recv(2048).decode('utf-8')
@@ -93,10 +112,8 @@ class ChatServer:
                 try:
                     data = json.loads(message)
 
-                    # Check the type of message
                     if 'type' in data:
                         if data['type'] == 'file':
-                            # Handle file message
                             self.file_server.handle_file(data, room, client_socket, self.rooms, self.remove_client)
                         elif data['type'] == 'message':
                             self.message_server.broadcast_message(f"{message}", client_socket, room, self.rooms, self.remove_client)
@@ -117,6 +134,15 @@ class ChatServer:
             self.message_server.broadcast_message(f"{username} has left the chat.", client_socket, room, self.rooms, self.remove_client)
 
     def get_user_data(self, client_socket):
+        """
+        Get user data (username and room) from the client.
+
+        Args:
+            client_socket (socket.socket): The client socket.
+
+        Returns:
+            tuple: A tuple containing username and room, or None if unsuccessful.
+        """
         try:
             frame = client_socket.recv(2048)
 
@@ -150,6 +176,14 @@ class ChatServer:
             return None
 
     def remove_client(self, username, room, client_socket):
+        """
+        Remove a client from the room.
+
+        Args:
+            username (str): The username of the client.
+            room (str): The room from which the client is removed.
+            client_socket (socket.socket): The client socket to be closed.
+        """
         if room in self.rooms:
             room_clients = self.rooms[room]
             client_socket.close()
@@ -157,11 +191,21 @@ class ChatServer:
             self.rooms[room] = room_clients
 
     def receive_message(self, client_socket):
+        """
+        Receive a message from the client.
+
+        Args:
+            client_socket (socket.socket): The client socket.
+
+        Returns:
+            str: The received message.
+        """
         try:
             opcode = client_socket.recv(1)
             if not opcode:
                 return None
 
+           
             payload_length = ord(client_socket.recv(1)) & 127
 
             if payload_length == 126:
@@ -182,17 +226,31 @@ class ChatServer:
             return None
 
     def get_connected_users(self, room):
+        """
+        Get a list of connected users in a specific room.
+
+        Args:
+            room (str): The room for which to retrieve connected users.
+
+        Returns:
+            list: A list of usernames of connected users in the specified room.
+        """
         if room in self.rooms:
             return [username for username, _ in self.rooms[room]]
         else:
             return []
         
     def send_userlist(self, client_socket, users):
+        """
+        Send a userlist message to the client.
+
+        Args:
+            client_socket (socket.socket): The client socket to send the userlist message.
+            users (list): A list of usernames to be included in the userlist message.
+        """
         userlist_message = {
             'type': 'userlist',
             'users': users
         }
         json_message = json.dumps(userlist_message)
         WebSocket.send_message(client_socket, json_message)
-    
-    

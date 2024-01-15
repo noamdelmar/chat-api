@@ -87,7 +87,7 @@ class AudioServer:
                             for _, client_socket in room_clients:
                                 if client_socket != sender_socket:
                                     try:
-                                        WebSocket.send_audio(client_socket, json_message)
+                                        WebSocket.send_message(client_socket, json_message, 'audio')
                                     except Exception as e:
                                         print(f"Error broadcasting file: {e}")
                                         remove_client(_, room, client_socket)

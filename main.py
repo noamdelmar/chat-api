@@ -1,7 +1,7 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask
 from flask_socketio import SocketIO
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS  
 import threading
 from chat_server import ChatServer
 from dotenv import load_dotenv
@@ -10,7 +10,7 @@ load_dotenv()
 
 app = Flask(__name__)
 socketio = SocketIO(app)
-CORS(app)  # Enable CORS for all routes
+CORS(app) 
 
 PORT = int(os.environ.get('PORT', 8080))
 
